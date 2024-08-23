@@ -8,5 +8,6 @@ export const getCurrentUser = cache(async () => {
   if (!session?.user) {
     return undefined;
   }
+
   return session.user;
 });

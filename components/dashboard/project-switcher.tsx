@@ -1,17 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
-
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type ProjectType = {
   title: string;
@@ -19,27 +14,56 @@ type ProjectType = {
   color: string;
 };
 
-const projects: ProjectType[] = [
-  {
-    title: "Project 1",
-    slug: "project-number-one",
-    color: "bg-red-500",
-  },
-  {
-    title: "Project 2",
-    slug: "project-number-two",
-    color: "bg-blue-500",
-  },
-];
-const selected: ProjectType = projects[1];
+function stringToColor(string) {
+  // Define the predefined color class names
+  const colorClasses = [
+    "bg-blue-500",
+    "bg-green-500",
+    "bg-purple-500",
+    "bg-yellow-500",
+    "bg-gray-500",
+    "bg-red-500",
+  ];
 
-export default function ProjectSwitcher({
-  large = false,
-}: {
-  large?: boolean;
-}) {
+  // Calculate a simple hash by summing char codes
+  let hash = 0;
+  for (let i = 0; i < string.length; i++) {
+    hash += string.charCodeAt(i);
+  }
+
+  // Use the hash to select a color class from the predefined list
+  const index = hash % colorClasses.length;
+  return colorClasses[index];
+}
+
+export default function ProjectSwitcher({ large = false }: { large?: boolean }) {
   const { data: session, status } = useSession();
   const [openPopover, setOpenPopover] = useState(false);
+  const [projects, setProjects] = useState<ProjectType[]>([]);
+  const [selected, setSelected] = useState<ProjectType | null>(null);
+
+  useEffect(() => {
+    async function fetchClientsAndProjects() {
+      const response = await fetch("/api/clients");
+      if (response.ok) {
+        const clients = await response.json();
+        const updatedProjects = clients.map((client) => ({
+          title: `${client.name} - Project Title`, // Customize as needed
+          slug: client.name.toLowerCase().replace(/\s+/g, "-"),
+          color: stringToColor(client.name),
+        }));
+        setProjects(updatedProjects);
+      }
+    }
+
+    fetchClientsAndProjects();
+  }, []);
+
+  useEffect(() => {
+    if (projects.length > 0) {
+      setSelected(projects[0]);
+    }
+  }, [projects]);
 
   if (!projects || status === "loading") {
     return <ProjectSwitcherPlaceholder />;
@@ -55,35 +79,27 @@ export default function ProjectSwitcher({
             onClick={() => setOpenPopover(!openPopover)}
           >
             <div className="flex items-center space-x-3 pr-2">
-              <div
-                className={cn(
-                  "size-3 shrink-0 rounded-full",
-                  selected.color,
-                )}
-              />
-              <div className="flex items-center space-x-3">
-                <span
-                  className={cn(
-                    "inline-block truncate text-sm font-medium xl:max-w-[120px]",
-                    large ? "w-full" : "max-w-[80px]",
-                  )}
-                >
-                  {selected.slug}
-                </span>
-              </div>
+              {selected && (
+                <>
+                  <div className={cn("size-3 shrink-0 rounded-full", selected.color)} />
+                  <div className="flex items-center space-x-3">
+                    <span
+                      className={cn(
+                        "inline-block truncate text-sm font-medium xl:max-w-[120px]",
+                        large ? "w-full" : "max-w-[80px]"
+                      )}
+                    >
+                      {selected.title}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
-            <ChevronsUpDown
-              className="size-4 text-muted-foreground"
-              aria-hidden="true"
-            />
+            <ChevronsUpDown className="size-4 text-muted-foreground" aria-hidden="true" />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="max-w-60 p-2">
-          <ProjectList
-            selected={selected}
-            projects={projects}
-            setOpenPopover={setOpenPopover}
-          />
+          <ProjectList selected={selected} projects={projects} setOpenPopover={setOpenPopover} />
         </PopoverContent>
       </Popover>
     </div>
